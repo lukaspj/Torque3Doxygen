@@ -29,12 +29,7 @@ RUN mkdir -p /Torque3D/My\ Projects/Stock/buildFiles/ubuntu \
  && cmake ../../../.. -DTORQUE_APP_NAME=Stock -DCMAKE_BUILD_TYPE=Release -DTORQUE_DEDICATED=ON -DVIDEO_WAYLAND=OFF \
  && make
 
-FROM ubuntu:20.04 AS runtime
-
-RUN apt-get update \
- && apt-get upgrade -y
-
-RUN apt-get install -y libx11-6 libxft2 libgtk-3-0 libglib2.0-0
+FROM lukaspj/t3deval:base AS runtime
 
 COPY --from=builder [ \
     "/Torque3D/My Projects/Stock/game/Stock", \
@@ -52,4 +47,4 @@ RUN ln -s /Torque3D/libSDL2-2.0d.so.0.12.0 /Torque3D/libSDL2-2.0d.so.0 \
 
 WORKDIR /Torque3D
 
-ENTRYPOINT ["./Stock"]
+# ENTRYPOINT ["./Stock"]

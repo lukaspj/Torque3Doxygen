@@ -17,32 +17,69 @@ import (
 	"github.com/docker/docker/pkg/term"
 )
 
-func EvaluateScript(script string) string {
-
+func BuildImage(tag string, cli client.Client) error {
 	contextPath, _ := filepath.Abs("./files/")
-	tag := "t3deval:4_0Preview"
+	buildOpts := types.ImageBuildOptions{
+		Dockerfile: "./Dockerfile",
+		Tags:       []string{tag},
+	}
+
+	buildCtx, err := archive.TarWithOptions(contextPath, &archive.TarOptions{})
+	if err != nil {
+		return err
+	}
+
+	resp, err := cli.ImageBuild(context.Background(), buildCtx, buildOpts)
+	if err != nil {
+		log.Fatalf("Failed to build image - %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
+
+	return nil
+}
+
+func PullImageIfNotExists(cli *client.Client, tag string) {
+	list, err := cli.ImageList(context.Background(), types.ImageListOptions{})
+	if err != nil {
+		log.Fatalf("Failed to list images - %v", err)
+	}
+	found := false
+	for _, i := range list {
+		for _, t := range i.RepoTags {
+			if t == tag {
+				found = true
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	if !found {
+		pullResp, err := cli.ImagePull(context.Background(), tag, types.ImagePullOptions{})
+		if err != nil {
+			log.Fatalf("Failed to pull image %s - %v", tag, err)
+		}
+		defer pullResp.Close()
+
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stderr, termFd, isTerm, nil)
+	}
+}
+
+func EvaluateScript(script string) string {
+	tag := "lukaspj/t3deval:4_0Preview"
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
 
-	buildOpts := types.ImageBuildOptions{
-		Dockerfile: "./Dockerfile",
-		Tags:       []string{tag},
-	}
-
-	buildCtx, _ := archive.TarWithOptions(contextPath, &archive.TarOptions{})
-
-	resp, err := cli.ImageBuild(context.Background(), buildCtx, buildOpts)
-
-	if err != nil {
-		log.Fatalf("Failed to build image - %v", err)
-	}
-	defer resp.Body.Close()
-
-	termFd, isTerm := term.GetFdInfo(os.Stderr)
-	jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
+	PullImageIfNotExists(cli, tag)
 
 	var containerResp container.ContainerCreateCreatedBody
 	containerResp, err = cli.ContainerCreate(
