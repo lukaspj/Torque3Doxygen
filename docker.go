@@ -107,7 +107,7 @@ func EvaluateScript(script string, ctx context.Context) (string, error) {
 	}
 
 	defer func() {
-		err = cli.ContainerRemove(ctx, containerResp.ID, types.ContainerRemoveOptions{
+		err = cli.ContainerRemove(context.Background(), containerResp.ID, types.ContainerRemoveOptions{
 			Force: true,
 		})
 		if err != nil {
