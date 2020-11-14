@@ -10,6 +10,9 @@ import (
 
 func main() {
 	c := chi.NewRouter()
+	w := NewWorker()
+
+	go w.Work()
 
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		render.HTML(w, r,`
@@ -29,7 +32,13 @@ return 3+3;
 	c.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		script := r.PostFormValue("script")
 		log.Println("Script is: ", script)
-		render.PlainText(w, r, EvaluateScript(script))
+		j := NewJob(script)
+		output, err := j.GetOutput()
+		if err != nil {
+			render.PlainText(w, r, err.Error())
+			return
+		}
+		render.PlainText(w, r, output)
 	})
 
 	log.Fatalf("Error occured: %v", http.ListenAndServe(":3000", c))

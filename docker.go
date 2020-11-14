@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -31,21 +32,18 @@ func BuildImage(tag string, cli client.Client) error {
 
 	resp, err := cli.ImageBuild(context.Background(), buildCtx, buildOpts)
 	if err != nil {
-		log.Fatalf("Failed to build image - %v", err)
-		return err
+		return errors.Wrap(err, "Failed to build image")
 	}
 	defer resp.Body.Close()
 
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
-	jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
-
-	return nil
+	return jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
 }
 
-func PullImageIfNotExists(cli *client.Client, tag string) {
+func PullImageIfNotExists(cli *client.Client, tag string) error {
 	list, err := cli.ImageList(context.Background(), types.ImageListOptions{})
 	if err != nil {
-		log.Fatalf("Failed to list images - %v", err)
+		return errors.Wrapf(err, "Failed to list images")
 	}
 	found := false
 	for _, i := range list {
@@ -62,32 +60,34 @@ func PullImageIfNotExists(cli *client.Client, tag string) {
 	if !found {
 		pullResp, err := cli.ImagePull(context.Background(), tag, types.ImagePullOptions{})
 		if err != nil {
-			log.Fatalf("Failed to pull image %s - %v", tag, err)
+			return errors.Wrapf(err, "Failed to pull image %s", tag)
 		}
 		defer pullResp.Close()
 
 		termFd, isTerm := term.GetFdInfo(os.Stderr)
-		jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stderr, termFd, isTerm, nil)
+		return jsonmessage.DisplayJSONMessagesStream(pullResp, os.Stderr, termFd, isTerm, nil)
 	}
+	return nil
 }
 
-func EvaluateScript(script string) string {
+func EvaluateScript(script string) (string, error) {
 	tag := "lukaspj/t3deval:4_0Preview"
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	PullImageIfNotExists(cli, tag)
+	err = PullImageIfNotExists(cli, tag)
+	if err != nil {
+		return "", err
+	}
 
 	var containerResp container.ContainerCreateCreatedBody
 	containerResp, err = cli.ContainerCreate(
 		context.Background(),
 		&container.Config{
 			Image:        tag,
-			AttachStderr: true,
-			AttachStdout: true,
 			Cmd:          []string{script},
 			Tty:          true,
 		},
@@ -97,19 +97,19 @@ func EvaluateScript(script string) string {
 		"t3deval-worker-1",
 	)
 	if err != nil {
-		log.Fatalf("Failed to create container %s - %v", containerResp.ID, err)
+		return "", errors.Wrapf(err, "Failed to create container %s", containerResp.ID)
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	err = cli.ContainerStart(ctx, containerResp.ID, types.ContainerStartOptions{})
 	if err != nil {
-		log.Fatalf("Failed to run container %s - %v", containerResp.ID, err)
+		return "", errors.Wrapf(err, "Failed to run container %s", containerResp.ID)
 	}
 
 	waitCh, errCh := cli.ContainerWait(context.Background(), containerResp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
-		log.Fatalf("Failed to wait on container %s - %v", containerResp.ID, err)
+		return "", errors.Wrapf(err, "Failed to wait on container %s", containerResp.ID)
 	case <-waitCh:
 
 	}
@@ -119,7 +119,7 @@ func EvaluateScript(script string) string {
 			Force: true,
 		})
 		if err != nil {
-			log.Fatalf("Failed to remove container %s - %v", containerResp.ID, err)
+			log.Printf("Failed to remove container %s", containerResp.ID)
 		}
 	}()
 
@@ -128,13 +128,13 @@ func EvaluateScript(script string) string {
 		ShowStderr: true,
 	})
 	if err != nil {
-		log.Fatalf("Failed to get container logs from %s - %v", containerResp.ID, err)
+		return "", errors.Wrapf(err, "Failed to get container logs from %s", containerResp.ID)
 	}
 
 	logs, err := ioutil.ReadAll(reader)
 	if err != nil {
-		log.Fatalf("Failed to read logs %s - %v", containerResp.ID, err)
+		return "", errors.Wrapf(err, "Failed to read logs %s", containerResp.ID)
 	}
 
-	return string(logs)
+	return string(logs), nil
 }
