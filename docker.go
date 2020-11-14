@@ -101,8 +101,7 @@ func EvaluateScript(script string) (string, error) {
 		return "", errors.Wrapf(err, "Failed to create container %s", containerResp.ID)
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	err = cli.ContainerStart(ctx, containerResp.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(context.Background(), containerResp.ID, types.ContainerStartOptions{})
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to run container %s", containerResp.ID)
 	}
@@ -116,6 +115,7 @@ func EvaluateScript(script string) (string, error) {
 		}
 	}()
 
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	waitCh, errCh := cli.ContainerWait(ctx, containerResp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
