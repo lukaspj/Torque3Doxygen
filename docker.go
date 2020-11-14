@@ -107,14 +107,6 @@ func EvaluateScript(script string) (string, error) {
 		return "", errors.Wrapf(err, "Failed to run container %s", containerResp.ID)
 	}
 
-	waitCh, errCh := cli.ContainerWait(context.Background(), containerResp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		return "", errors.Wrapf(err, "Failed to wait on container %s", containerResp.ID)
-	case <-waitCh:
-
-	}
-
 	defer func() {
 		err = cli.ContainerRemove(context.Background(), containerResp.ID, types.ContainerRemoveOptions{
 			Force: true,
@@ -123,6 +115,14 @@ func EvaluateScript(script string) (string, error) {
 			log.Printf("Failed to remove container %s", containerResp.ID)
 		}
 	}()
+
+	waitCh, errCh := cli.ContainerWait(ctx, containerResp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		return "", errors.Wrapf(err, "Failed to wait on container %s", containerResp.ID)
+	case <-waitCh:
+
+	}
 
 	reader, err := cli.ContainerLogs(context.Background(), containerResp.ID, types.ContainerLogsOptions{
 		ShowStdout: true,

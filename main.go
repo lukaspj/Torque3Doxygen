@@ -10,9 +10,9 @@ import (
 
 func main() {
 	c := chi.NewRouter()
-	w := NewWorker()
+	worker := NewWorker()
 
-	go w.Work()
+	go worker.Work()
 
 	c.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		render.HTML(w, r,`
@@ -33,6 +33,7 @@ return 3+3;
 		script := r.PostFormValue("script")
 		log.Println("Script is: ", script)
 		j := NewJob(script)
+		worker.Push(j)
 		output, err := j.GetOutput()
 		if err != nil {
 			render.PlainText(w, r, err.Error())
