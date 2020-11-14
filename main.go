@@ -33,7 +33,7 @@ return 3+3;
 	c.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		script := r.PostFormValue("script")
 		log.Println("Script is: ", script)
-		j := NewJob(script)
+		j := NewJob(script, r.Context())
 		worker.Push(j)
 		output, err := j.GetOutput()
 		if err != nil {

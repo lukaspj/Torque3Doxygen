@@ -18,7 +18,7 @@ import (
 	"github.com/docker/docker/pkg/term"
 )
 
-func BuildImage(tag string, cli client.Client) error {
+func BuildImage(tag string, cli client.Client, ctx context.Context) error {
 	contextPath, _ := filepath.Abs("./files/")
 	buildOpts := types.ImageBuildOptions{
 		Dockerfile: "./Dockerfile",
@@ -30,7 +30,7 @@ func BuildImage(tag string, cli client.Client) error {
 		return err
 	}
 
-	resp, err := cli.ImageBuild(context.Background(), buildCtx, buildOpts)
+	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
 		return errors.Wrap(err, "Failed to build image")
 	}
@@ -40,8 +40,8 @@ func BuildImage(tag string, cli client.Client) error {
 	return jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
 }
 
-func PullImageIfNotExists(cli *client.Client, tag string) error {
-	list, err := cli.ImageList(context.Background(), types.ImageListOptions{})
+func PullImageIfNotExists(cli *client.Client, tag string, ctx context.Context) error {
+	list, err := cli.ImageList(ctx, types.ImageListOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "Failed to list images")
 	}
@@ -58,7 +58,7 @@ func PullImageIfNotExists(cli *client.Client, tag string) error {
 	}
 
 	if !found {
-		pullResp, err := cli.ImagePull(context.Background(), tag, types.ImagePullOptions{})
+		pullResp, err := cli.ImagePull(ctx, tag, types.ImagePullOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "Failed to pull image %s", tag)
 		}
@@ -70,7 +70,7 @@ func PullImageIfNotExists(cli *client.Client, tag string) error {
 	return nil
 }
 
-func EvaluateScript(script string) (string, error) {
+func EvaluateScript(script string, ctx context.Context) (string, error) {
 	tag := "lukaspj/t3deval:4_0Preview"
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -78,14 +78,14 @@ func EvaluateScript(script string) (string, error) {
 		return "", err
 	}
 
-	err = PullImageIfNotExists(cli, tag)
+	err = PullImageIfNotExists(cli, tag, ctx)
 	if err != nil {
 		return "", err
 	}
 
 	var containerResp container.ContainerCreateCreatedBody
 	containerResp, err = cli.ContainerCreate(
-		context.Background(),
+		ctx,
 		&container.Config{
 			Image:        tag,
 			Cmd:          []string{script},
@@ -101,13 +101,13 @@ func EvaluateScript(script string) (string, error) {
 		return "", errors.Wrapf(err, "Failed to create container %s", containerResp.ID)
 	}
 
-	err = cli.ContainerStart(context.Background(), containerResp.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, containerResp.ID, types.ContainerStartOptions{})
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to run container %s", containerResp.ID)
 	}
 
 	defer func() {
-		err = cli.ContainerRemove(context.Background(), containerResp.ID, types.ContainerRemoveOptions{
+		err = cli.ContainerRemove(ctx, containerResp.ID, types.ContainerRemoveOptions{
 			Force: true,
 		})
 		if err != nil {
@@ -115,8 +115,8 @@ func EvaluateScript(script string) (string, error) {
 		}
 	}()
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	waitCh, errCh := cli.ContainerWait(ctx, containerResp.ID, container.WaitConditionNotRunning)
+	timeoutCtx, _ := context.WithTimeout(ctx, 10*time.Second)
+	waitCh, errCh := cli.ContainerWait(timeoutCtx, containerResp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		return "", errors.Wrapf(err, "Failed to wait on container %s", containerResp.ID)
@@ -124,7 +124,7 @@ func EvaluateScript(script string) (string, error) {
 
 	}
 
-	reader, err := cli.ContainerLogs(context.Background(), containerResp.ID, types.ContainerLogsOptions{
+	reader, err := cli.ContainerLogs(ctx, containerResp.ID, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 	})
