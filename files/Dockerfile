@@ -34,17 +34,18 @@ FROM lukaspj/t3deval:base AS runtime
 COPY --from=builder [ \
     "/Torque3D/My Projects/Stock/game/Stock", \
     "/Torque3D/My Projects/Stock/game/libSDL2-2.0d.so.0.12.0", \
-    "/workspace/" \
+    "/Torque3D/" \
 ]
 
-COPY main.cs /workspace/
+COPY main.cs /Torque3D/
 COPY entrypoint.sh /
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && chown -R app:app /Torque3D
 
 # HACK: SDL linking error fix
-ENV LD_LIBRARY_PATH=/workspace
+RUN ln -s /Torque3D/libSDL2-2.0d.so.0.12.0 /Torque3D/libSDL2-2.0d.so.0 \
+ && ln -s /Torque3D/libSDL2-2.0d.so.0 /usr/lib/libSDL2-2.0d.so.0 \
+ && ln -s /Torque3D/libSDL2-2.0d.so.0 /Torque3D/libSDL2-2.0d.so
 
-RUN ln -s /workspace/libSDL2-2.0d.so.0.12.0 /workspace/libSDL2-2.0d.so.0 \
- && ln -s /workspace/libSDL2-2.0d.so.0 /workspace/libSDL2-2.0d.so
+WORKDIR /Torque3D
 
-ENTRYPOINT ["/entrypoint.sh", "--" , "/workspace/Stock"]
+ENTRYPOINT ["/entrypoint.sh", "--", "/Torque3D/Stock"]

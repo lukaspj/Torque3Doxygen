@@ -1,5 +1,5 @@
 if ($Game::argc != 2) {
-    error("Should only have one argument");
+    error("Should have exactly one argument, received " @ $Game::argc);
     quit();
 }
 
