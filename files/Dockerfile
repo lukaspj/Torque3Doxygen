@@ -46,6 +46,7 @@ RUN ln -s /Torque3D/libSDL2-2.0d.so.0.12.0 /Torque3D/libSDL2-2.0d.so.0 \
  && ln -s /Torque3D/libSDL2-2.0d.so.0 /usr/lib/libSDL2-2.0d.so.0 \
  && ln -s /Torque3D/libSDL2-2.0d.so.0 /Torque3D/libSDL2-2.0d.so
 
+USER app:app
 WORKDIR /Torque3D
 
-ENTRYPOINT ["/entrypoint.sh", "--", "/Torque3D/Stock"]
+ENTRYPOINT ["/Torque3D/Stock"]

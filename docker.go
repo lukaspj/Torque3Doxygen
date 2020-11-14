@@ -90,6 +90,7 @@ func EvaluateScript(script string) (string, error) {
 			Image:        tag,
 			Cmd:          []string{script},
 			Tty:          true,
+			NetworkDisabled: true,
 		},
 		&container.HostConfig{},
 		&network.NetworkingConfig{},
