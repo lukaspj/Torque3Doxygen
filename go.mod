@@ -12,8 +12,8 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.0-beta1+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/go-chi/render v1.0.1
+	github.com/go-chi/chi v4.1.2+incompatible // indirect
+	github.com/go-chi/render v1.0.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/moby/sys/mount v0.1.1 // indirect
 	github.com/moby/term v0.0.0-20201101162038-25d840ce174a // indirect
@@ -21,8 +21,10 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/pkg/errors v0.9.1
-	golang.org/x/net v0.0.0-20201109172640-a11eb1b685be // indirect
+	golang.org/x/net v0.0.0-20201109172640-a11eb1b685be
 	golang.org/x/sys v0.0.0-20201109165425-215b40eba54c // indirect
+	golang.org/x/text v0.3.3
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.33.2 // indirect
+	gopkg.in/yaml.v2 v2.2.8
 )
