@@ -1,5 +1,6 @@
 .idea/
 
-doxygen/
+/doxygen/
+/script-doxygen/
 hugo/
 *.json

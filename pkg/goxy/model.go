@@ -25,6 +25,11 @@ const (
 	Types
 	Friends
 	UserDefined
+	Defines
+	Typedefs
+	Variables
+	Enums
+	Related
 )
 
 const (
@@ -36,11 +41,13 @@ const (
 	Section        DocStringType = "section"
 	Paragraph      DocStringType = "paragraph"
 	Anchor         DocStringType = "anchor"
+	Image          DocStringType = "image"
 	Text           DocStringType = "text"
 	Ref            DocStringType = "ref"
 	Title          DocStringType = "title"
 	Heading        DocStringType = "heading"
 	XRefSect       DocStringType = "xrefsect"
+	Table          DocStringType = "table"
 	ParameterList  DocStringType = "parameterlist"
 	ItemizedList   DocStringType = "itemizedlist"
 	OrderedList    DocStringType = "orderedlist"
@@ -48,6 +55,7 @@ const (
 	Bold           DocStringType = "bold"
 	Emphasis       DocStringType = "emphasis"
 	Verbatim       DocStringType = "verbatim"
+	Preformatted   DocStringType = "preformatted"
 	Term           DocStringType = "term"
 	ComputerOutput DocStringType = "computeroutput"
 	LineBreak      DocStringType = "linebreak"
@@ -61,12 +69,14 @@ type KindRef int
 type DocStringType string
 
 type SourceLocation struct {
-	File      string
-	Line      int
-	Column    int
-	BodyFile  string
-	BodyStart int
-	BodyEnd   int
+	File          string
+	FileRefId     string
+	Line          int
+	Column        int
+	BodyFile      string
+	BodyFileRefId string
+	BodyStart     int
+	BodyEnd       int
 }
 
 type DocStringSection struct {
@@ -102,6 +112,15 @@ type DocStringParameterList struct {
 	Items []DocStringParameterItem
 }
 
+type DocStringTableEntry struct {
+	Head    bool
+	Content DocString
+}
+
+type DocStringTable struct {
+	Rows [][]DocStringTableEntry
+}
+
 type DocStringXRefSect struct {
 	Id          string
 	Title       string
@@ -132,6 +151,10 @@ type DocStringVerbatim struct {
 	Content DocString
 }
 
+type DocStringPreformatted struct {
+	Content DocString
+}
+
 type DocStringTerm struct {
 	Content DocString
 }
@@ -154,6 +177,12 @@ type DocStringRef struct {
 
 type DocStringAnchor struct {
 	Id string
+}
+
+type DocStringImage struct {
+	Name        string
+	Type        string
+	Description string
 }
 
 type DocStringElement struct {
@@ -307,4 +336,7 @@ type CompoundDoc struct {
 	InnerDirs       []InnerCompoundRef
 	InnerGroups     []InnerCompoundRef
 	InnerNamespaces []InnerCompoundRef
+
+	Location       SourceLocation
+	ProgramListing DocString
 }

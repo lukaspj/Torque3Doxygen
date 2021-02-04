@@ -21,15 +21,18 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
 
 FROM base AS docgen
 
+
 # Checkout Torque3D source code
 RUN git clone https://github.com/TorqueGameEngines/Torque3D.git /Torque3D \
  && cd /Torque3D \
  && git checkout Preview4_0
 
+# Build
+RUN mkdir -p /Torque3D/My\ Projects/Stock/buildFiles/ubuntu \
+ && cd /Torque3D/My\ Projects/Stock/buildFiles/ubuntu \
+ && cmake ../../../.. -DTORQUE_APP_NAME=Stock -DCMAKE_BUILD_TYPE=Release -DTORQUE_DEDICATED=ON -DVIDEO_WAYLAND=OFF \
+ && make
+
 COPY Doxyfile /Torque3D/
 
-# Build
-#RUN mkdir -p /Torque3D/My\ Projects/Stock/buildFiles/ubuntu \
-# && cd /Torque3D/My\ Projects/Stock/buildFiles/ubuntu \
-# && cmake ../../../.. -DTORQUE_APP_NAME=Stock -DCMAKE_BUILD_TYPE=Release -DTORQUE_DEDICATED=ON -DVIDEO_WAYLAND=OFF \
-# && make
+COPY test /Test

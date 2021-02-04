@@ -40,6 +40,13 @@ func CompoundFromDoxygen(d *doxygen.Doxygen) (*CompoundDoc, error) {
 	if err != nil {
 		return nil, err
 	}
+	compound.Location = LocationFromDoxygen(d.CompoundDef.Location)
+	if d.CompoundDef.ProgramListing != nil {
+		compound.ProgramListing, err = DocStringFromDoxygen(d.CompoundDef.ProgramListing.Content)
+		if err != nil {
+			return nil, err
+		}
+	}
 	compound.Sections = make([]*SectionDoc, 0)
 	for _, section := range d.CompoundDef.Sections {
 		s, err := SectionFromDoxygen(section)
@@ -127,6 +134,18 @@ func InferSectionHeader(kind Kind, s *SectionDoc) {
 		kindHeader = "Static Functions"
 	case Types:
 		kindHeader = "Types"
+	case UserDefined:
+		kindHeader = "User Defined"
+	case Defines:
+		kindHeader = "Defines"
+	case Typedefs:
+		kindHeader = "Typedefs"
+	case Variables:
+		kindHeader = "Variables"
+	case Enums:
+		kindHeader = "Enumerations"
+	case Related:
+		kindHeader = "Related"
 	default:
 		log.Fatal("unknown kind: ", s.Kind)
 	}
@@ -135,6 +154,8 @@ func InferSectionHeader(kind Kind, s *SectionDoc) {
 	case Group:
 		s.Header = kindHeader
 	case Class:
+		fallthrough
+	default:
 		var protHeader string
 		switch s.Protection {
 		case Public:
@@ -457,6 +478,15 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 				Type:  Anchor,
 				Value: DocStringAnchor{strings.ToLower(cc.Id)},
 			}
+		case doxygen.Image:
+			parts[i] = DocStringElement{
+				Type:  Image,
+				Value: DocStringImage{
+					Name:        cc.Name,
+					Type:        cc.Type,
+					Description: cc.Description,
+				},
+			}
 		case doxygen.Text:
 			parts[i] = DocStringElement{
 				Type:  Text,
@@ -580,6 +610,27 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 				Type:  ParameterList,
 				Value: l,
 			}
+		case doxygen.Table:
+			t := DocStringTable{}
+
+			t.Rows = make([][]DocStringTableEntry, len(cc.Rows))
+			for idx, row := range cc.Rows {
+				t.Rows[idx] = make([]DocStringTableEntry, len(row.Columns))
+				for jdx, col := range row.Columns {
+					t.Rows[idx][jdx] = DocStringTableEntry{
+						Head:    col.TableHead,
+					}
+					t.Rows[idx][jdx].Content, err = DocStringFromDoxygen(col.Content)
+					if err != nil {
+						return DocString{}, err
+					}
+				}
+			}
+
+			parts[i] = DocStringElement{
+				Type:  Table,
+				Value: t,
+			}
 		case doxygen.Bold:
 			t := DocStringBold{}
 			t.Content, err = DocStringFromDoxygen(cc.Content)
@@ -618,6 +669,16 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 			}
 			parts[i] = DocStringElement{
 				Type:  Term,
+				Value: t,
+			}
+		case doxygen.Preformatted:
+			t := DocStringPreformatted{}
+			t.Content, err = DocStringFromDoxygen(cc.Content)
+			if err != nil {
+				return DocString{}, err
+			}
+			parts[i] = DocStringElement{
+				Type:  Preformatted,
 				Value: t,
 			}
 		case doxygen.ComputerOutput:
@@ -670,6 +731,10 @@ func SectionKindFromDoxygen(kind string) (SectionKind, error) {
 	switch kind {
 	case "attrib":
 		return Attributes, nil
+	case "var":
+		return Variables, nil
+	case "function":
+		fallthrough
 	case "func":
 		return Functions, nil
 	case "static-func":
@@ -682,6 +747,14 @@ func SectionKindFromDoxygen(kind string) (SectionKind, error) {
 		return Friends, nil
 	case "user-defined":
 		return UserDefined, nil
+	case "define":
+		return Defines, nil
+	case "typedef":
+		return Typedefs, nil
+	case "enum":
+		return Enums, nil
+	case "related":
+		return Related, nil
 	default:
 		return -1, errors.New(fmt.Sprintf("unable to convert sectionkind string, unknown value: %s", kind))
 	}

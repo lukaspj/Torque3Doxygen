@@ -944,15 +944,15 @@ EXCLUDE_PATTERNS       =
 # Note that the wildcards are matched against the file with absolute path, so to
 # exclude all test directories use the pattern */test/*
 
-# EXCLUDE_SYMBOLS        =
-EXCLUDE_SYMBOLS        = bool \
-                         "F32 *" \
-                         float \
-                         "S8 *" \
-                         "Sample *" \
-                         "U8 *" \
-                         "ValueType *" \
-                         "void **"
+EXCLUDE_SYMBOLS        =
+#EXCLUDE_SYMBOLS        = bool \
+#                         "F32 *" \
+#                         float \
+#                         "S8 *" \
+#                         "Sample *" \
+#                         "U8 *" \
+#                         "ValueType *" \
+#                         "void **"
 
 # The EXAMPLE_PATH tag can be used to specify one or more files or directories
 # that contain example code fragments that are included (see the \include
@@ -1184,7 +1184,7 @@ IGNORE_PREFIX          =
 # If the GENERATE_HTML tag is set to YES, doxygen will generate HTML output
 # The default value is: YES.
 
-GENERATE_HTML          = NO
+GENERATE_HTML          = YES
 
 # The HTML_OUTPUT tag is used to specify where the HTML docs will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of

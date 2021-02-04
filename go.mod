@@ -12,7 +12,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.0-beta1+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/go-chi/chi v4.1.2+incompatible // indirect
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/moby/sys/mount v0.1.1 // indirect

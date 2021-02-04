@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 )
 
 type GoxygenEntity struct {
@@ -41,45 +42,285 @@ type GeekdocBundleMenu struct {
 }
 
 func main() {
-	docs := doxygen.ParseDoxygenFolder()
+	/*r := chi.NewRouter()
 
+	if err := http.ListenAndServe(":3000", r); err != nil {
+		log.Fatalf("server crashed with error: %v", err)
+	}
+	 */
+
+	scriptDocs := doxygen.ParseDoxygenFolder("script-doxygen/xml")
+
+	scriptCompounds, scriptData := ExtractDoxygenMetadata(scriptDocs)
+
+	docs := doxygen.ParseDoxygenFolder("doxygen/xml")
+
+	compounds, data := ExtractDoxygenMetadata(docs)
+
+	for _, compound := range compounds {
+		var mdType string
+		switch compound.Kind {
+		case goxy.Dir:
+			mdType = "dir"
+		default:
+			mdType = "compound"
+		}
+
+		mdContent := fmt.Sprintf(`---
+goxygen_id: "%s"
+goxygen_key: "coding"
+GeekdocFlatSection: true
+title: "%s"
+type: "%s"
+---
+`, compound.Id, compound.Title, mdType)
+
+		os.MkdirAll(fmt.Sprintf("hugo/content/coding/%s", compound.Kind), 0644)
+		ioutil.WriteFile(fmt.Sprintf("hugo/content/coding/%s/%s.md", compound.Kind, compound.Id), []byte(mdContent), 0644)
+		data.Entities[compound.Id] = GoxygenEntity{
+			Kind:   string(compound.Kind),
+			Entity: compound,
+		}
+	}
+
+	for _, compound := range scriptCompounds {
+		var mdType string
+		switch compound.Kind {
+		case goxy.Dir:
+			mdType = "dir"
+		default:
+			mdType = "compound"
+		}
+
+		mdContent := fmt.Sprintf(`---
+goxygen_id: "%s"
+goxygen_key: "scripting"
+GeekdocFlatSection: true
+title: "%s"
+type: "%s"
+---
+`, compound.Id, compound.Title, mdType)
+
+		os.MkdirAll(fmt.Sprintf("hugo/content/scripting/%s", compound.Kind), 0644)
+		ioutil.WriteFile(fmt.Sprintf("hugo/content/scripting/%s/%s.md", compound.Kind, compound.Id), []byte(mdContent), 0644)
+		scriptData.Entities[compound.Id] = GoxygenEntity{
+			Kind:   string(compound.Kind),
+			Entity: compound,
+		}
+	}
+
+	os.MkdirAll("hugo/data", 0644)
+	bytes, err := json.Marshal(map[string]GoxygenData {
+		"coding": data,
+		"scripting": scriptData,
+	})
+	if err != nil {
+		log.Fatalf("Error: %v", errors.WithStack(err))
+	}
+	err = ioutil.WriteFile("hugo/data/goxygen.json", bytes, 0644)
+	if err != nil {
+		log.Fatalf("Error: %v", errors.WithStack(err))
+	}
+
+	codingPages := make([]GeekdocBundleMenuItem, 0)
+	for _, compound := range compounds {
+		if compound.Kind == goxy.Page {
+			codingPages = append(codingPages, GeekdocBundleMenuItem{
+				Name: compound.Title,
+				Ref:  fmt.Sprintf("coding/page/%s", compound.Id),
+			})
+		}
+	}
+
+	scriptingPages := make([]GeekdocBundleMenuItem, 0)
+	for _, compound := range scriptCompounds {
+		if compound.Kind == goxy.Page {
+			scriptingPages = append(scriptingPages, GeekdocBundleMenuItem{
+				Name: compound.Title,
+				Ref:  fmt.Sprintf("scripting/page/%s", compound.Id),
+			})
+		}
+	}
+
+	engineGroups := make([]GeekdocBundleMenuItem, 0)
+	var rootDirRefId string
+	for _, compound := range compounds {
+		if compound.Kind == goxy.Group && compound.Parent == "" {
+			group := GeekdocBundleMenuItem{
+				Name: compound.Title,
+				Ref:  fmt.Sprintf("coding/group/%s", compound.Id),
+				Sub:  []GeekdocBundleMenuItem{},
+			}
+
+			for _, inner := range compounds {
+				if inner.Kind == goxy.Group && inner.Parent == compound.Id {
+					group.Sub = append(group.Sub, GeekdocBundleMenuItem{
+						Name: inner.Title,
+						Ref:  fmt.Sprintf("coding/group/%s", inner.Id),
+					},
+					)
+				}
+			}
+
+			engineGroups = append(engineGroups, group)
+		}
+
+		if compound.Kind == goxy.Dir && compound.Title == "Engine" {
+			rootDirRefId = compound.Id
+		}
+	}
+
+	scriptGroups := make([]GeekdocBundleMenuItem, 0)
+	for _, compound := range scriptCompounds {
+		if compound.Kind == goxy.Group && compound.Parent == "" {
+			group := GeekdocBundleMenuItem{
+				Name: compound.Title,
+				Ref:  fmt.Sprintf("scripting/group/%s", compound.Id),
+				Sub:  []GeekdocBundleMenuItem{},
+			}
+
+			for _, inner := range compounds {
+				if inner.Kind == goxy.Group && inner.Parent == compound.Id {
+					group.Sub = append(group.Sub, GeekdocBundleMenuItem{
+						Name: inner.Title,
+						Ref:  fmt.Sprintf("scripting/group/%s", inner.Id),
+					},
+					)
+				}
+			}
+
+			scriptGroups = append(scriptGroups, group)
+		}
+	}
+
+	menu := map[string][]GeekdocBundleMenuItem{
+		"main": {
+			{
+				Name: "Coding Reference",
+				Sub: []GeekdocBundleMenuItem{
+					{
+						Name: "Classes",
+						Ref:  "coding/class",
+					},
+					{
+						Name: "Files",
+						Ref:  fmt.Sprintf("coding/dir/%s", rootDirRefId),
+					},
+					{
+						Name: "Groups",
+						Ref:  "coding/group",
+					},
+					{
+						Name: "Namespaces",
+						Ref:  "coding/namespace",
+					},
+					{
+						Name: "Pages",
+						Ref:  "coding/page",
+						Sub:  codingPages,
+					},
+					{
+						Name: "Unions",
+						Ref:  "coding/union",
+					},
+				},
+			},
+			{
+				Name: "Scripting Reference",
+				Sub: []GeekdocBundleMenuItem{
+					{
+						Name: "Classes",
+						Ref:  "scripting/class",
+					},
+					{
+						Name: "Groups",
+						Ref:  "scripting/group",
+					},
+					{
+						Name: "Namespaces",
+						Ref:  "scripting/namespace",
+					},
+					{
+						Name: "Pages",
+						Ref:  "scripting/page",
+						Sub:  codingPages,
+					},
+				},
+			},
+		},
+	}
+
+	os.MkdirAll("hugo/data/menu", 0644)
+	bytes, err = yaml.Marshal(menu)
+	if err != nil {
+		log.Fatalf("Error: %v", errors.WithStack(err))
+	}
+	err = ioutil.WriteFile("hugo/data/menu/main.yml", bytes, 0644)
+	if err != nil {
+		log.Fatalf("Error: %v", errors.WithStack(err))
+	}
+
+	return
+}
+
+func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, GoxygenData) {
 	compounds := make([]*goxy.CompoundDoc, 0)
 
 	data := GoxygenData{
 		Entities: make(map[string]GoxygenEntity),
 		Refs:     make(map[string]GoxygenRef),
 	}
+	files := make(map[string]*goxy.CompoundDoc)
 	for _, doc := range docs {
 		compound, err := goxy.CompoundFromDoxygen(doc)
 		if err != nil {
 			fmt.Println(fmt.Sprintf("unable to parse doxygen compound doc: %v, due to: %v", doc.CompoundDef.CompoundName, err))
 		} else {
 			compounds = append(compounds, compound)
+			if compound.Kind == goxy.File {
+				files[strings.ToLower(compound.Location.File)] = compound
+			}
 		}
 	}
 
 	for _, compound := range compounds {
-		for _, class := range compound.InnerClasses {
-			for _, inner := range compounds {
-				if inner.Id == class.RefId {
-					inner.Parent = compound.Id
+		if file, ok := files[strings.ToLower(compound.Location.File)]; ok {
+			compound.Location.FileRefId = file.Id
+		}
+		if file, ok := files[strings.ToLower(compound.Location.BodyFile)]; ok {
+			compound.Location.BodyFileRefId = file.Id
+		}
+
+		if compound.Kind == goxy.Class {
+			for _, class := range compound.InnerClasses {
+				for _, inner := range compounds {
+					if inner.Id == class.RefId {
+						inner.Parent = compound.Id
+					}
 				}
 			}
 		}
-		for _, namespace := range compound.InnerNamespaces {
-			for _, inner := range compounds {
-				if inner.Id == namespace.RefId {
-					inner.Parent = compound.Id
+
+		if compound.Kind == goxy.Namespace {
+			for _, namespace := range compound.InnerNamespaces {
+				for _, inner := range compounds {
+					if inner.Id == namespace.RefId {
+						inner.Parent = compound.Id
+					}
 				}
 			}
 		}
-		for _, group := range compound.InnerGroups {
-			for _, inner := range compounds {
-				if inner.Id == group.RefId {
-					inner.Parent = compound.Id
+
+		if compound.Kind == goxy.Group {
+			for _, group := range compound.InnerGroups {
+				for _, inner := range compounds {
+					if inner.Id == group.RefId {
+						inner.Parent = compound.Id
+					}
 				}
 			}
 		}
+
 		for _, file := range compound.InnerFiles {
 			for _, inner := range compounds {
 				if inner.Id == file.RefId {
@@ -87,6 +328,7 @@ func main() {
 				}
 			}
 		}
+
 		for _, dir := range compound.InnerDirs {
 			for _, inner := range compounds {
 				if inner.Id == dir.RefId {
@@ -98,16 +340,6 @@ func main() {
 
 	// COMPOUNDS
 	for _, compound := range compounds {
-		mdContent := fmt.Sprintf(`---
-goxygen_id: "%s"
-GeekdocFlatSection: true
-title: "%s"
-type: "%s"
----
-`, compound.Id, compound.Title, "compound")
-
-		os.MkdirAll(fmt.Sprintf("hugo/content/%s", compound.Kind), 0644)
-		ioutil.WriteFile(fmt.Sprintf("hugo/content/%s/%s.md", compound.Kind, compound.Id), []byte(mdContent), 0644)
 		data.Entities[compound.Id] = GoxygenEntity{
 			Kind:   string(compound.Kind),
 			Entity: compound,
@@ -196,109 +428,7 @@ type: "%s"
 			}
 		}
 	}
-
-	os.MkdirAll("hugo/data", 0644)
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-	err = ioutil.WriteFile("hugo/data/goxygen.json", bytes, 0644)
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-
-	bytes, err = json.Marshal(compounds[0:10])
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-	err = ioutil.WriteFile("goxygen_excerpt_compounds.json", bytes, 0644)
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-
-	pages := make([]GeekdocBundleMenuItem, 0)
-	for _, compound := range compounds {
-		if compound.Kind == goxy.Page {
-			pages = append(pages, GeekdocBundleMenuItem{
-				Name: compound.Title,
-				Ref:  fmt.Sprintf("page/%s", compound.Id),
-			})
-		}
-	}
-
-	groups := make([]GeekdocBundleMenuItem, 0)
-	for _, compound := range compounds {
-		if compound.Kind == goxy.Group && compound.Parent == "" {
-			group := GeekdocBundleMenuItem{
-				Name: compound.Title,
-				Ref:  fmt.Sprintf("group/%s", compound.Id),
-				Sub:  []GeekdocBundleMenuItem{},
-			}
-
-			for _, inner := range compounds {
-				if inner.Kind == goxy.Group && inner.Parent == compound.Id {
-					group.Sub = append(group.Sub, GeekdocBundleMenuItem{
-						Name: inner.Title,
-						Ref:  fmt.Sprintf("group/%s", inner.Id),
-					},
-					)
-				}
-			}
-
-			groups = append(groups, group)
-		}
-	}
-
-	menu := map[string][]GeekdocBundleMenuItem{
-		"main": {
-			{
-				Name: "Coding",
-				Sub: []GeekdocBundleMenuItem{
-					{
-						Name: "Classes",
-						Ref:  "/class",
-					},
-					{
-						Name: "Files",
-						Ref:  "/file",
-					},
-					{
-						Name: "Dirs",
-						Ref:  "/dir",
-					},
-					{
-						Name: "Groups",
-						Ref:  "/group",
-					},
-					{
-						Name: "Namespaces",
-						Ref:  "/namespace",
-					},
-					{
-						Name: "Pages",
-						Ref:  "/page",
-						Sub:  pages,
-					},
-					{
-						Name: "Unions",
-						Ref:  "/union",
-					},
-				},
-			},
-		},
-	}
-
-	os.MkdirAll("hugo/data/menu", 0644)
-	bytes, err = yaml.Marshal(menu)
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-	err = ioutil.WriteFile("hugo/data/menu/main.yml", bytes, 0644)
-	if err != nil {
-		log.Fatalf("Error: %v", errors.WithStack(err))
-	}
-
-	return
+	return compounds, data
 }
 
 func AddRefsFromDescriptions(refs map[string]GoxygenRef, id string, d goxy.Descriptions) {
@@ -356,6 +486,18 @@ func AddRefsFromDocstring(refs map[string]GoxygenRef, id string, doc goxy.DocStr
 			for _, item := range v.Items {
 				AddRefsFromDocstring(refs, id, item)
 			}
+		case goxy.VariableList:
+			v := element.Value.(goxy.DocStringVariableList)
+			for _, item := range v.Items {
+				AddRefsFromDocstring(refs, id, item)
+			}
+		case goxy.Table:
+			v := element.Value.(goxy.DocStringTable)
+			for _, row := range v.Rows {
+				for _, col := range row {
+					AddRefsFromDocstring(refs, id, col.Content)
+				}
+			}
 		case goxy.Bold:
 			v := element.Value.(goxy.DocStringBold)
 			AddRefsFromDocstring(refs, id, v.Content)
@@ -364,6 +506,9 @@ func AddRefsFromDocstring(refs map[string]GoxygenRef, id string, doc goxy.DocStr
 			AddRefsFromDocstring(refs, id, v.Content)
 		case goxy.Verbatim:
 			v := element.Value.(goxy.DocStringVerbatim)
+			AddRefsFromDocstring(refs, id, v.Content)
+		case goxy.Preformatted:
+			v := element.Value.(goxy.DocStringPreformatted)
 			AddRefsFromDocstring(refs, id, v.Content)
 		case goxy.Term:
 			v := element.Value.(goxy.DocStringTerm)
@@ -377,6 +522,11 @@ func AddRefsFromDocstring(refs map[string]GoxygenRef, id string, doc goxy.DocStr
 		case goxy.Ref:
 			v := element.Value.(goxy.DocStringRef)
 			AddRefsFromDocstring(refs, id, v.Content)
+		case goxy.Image:
+		case goxy.Text:
+		case goxy.LineBreak:
+		default:
+			fmt.Printf("unhandled docstring ref: %s\n", element.Type)
 		}
 	}
 }
