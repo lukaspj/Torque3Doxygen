@@ -2,6 +2,7 @@ package main
 
 import (
 	"ScriptExecServer/pkg/doxygen"
+	"ScriptExecServer/pkg/formatter"
 	"ScriptExecServer/pkg/goxy"
 	"encoding/json"
 	"fmt"
@@ -13,21 +14,9 @@ import (
 	"strings"
 )
 
-type GoxygenEntity struct {
-	Kind   string
-	Entity interface{}
-}
-
-type GoxygenRef struct {
-	Kind      string
-	Name      string
-	RefId     string
-	ParentRef string
-}
-
 type GoxygenData struct {
-	Entities map[string]GoxygenEntity
-	Refs     map[string]GoxygenRef
+	Entities map[string]*goxy.CompoundDoc
+	Refs     map[string]goxy.CompoundRef
 }
 
 type GeekdocBundleMenuItem struct {
@@ -57,55 +46,22 @@ func main() {
 
 	compounds, data := ExtractDoxygenMetadata(docs)
 
+	scriptingFormatter := formatter.NewHugoFormatter("scripting", scriptData.Entities, scriptData.Refs)
+	codingFormatter := formatter.NewHugoFormatter("coding", data.Entities, data.Refs)
+
 	for _, compound := range compounds {
-		var mdType string
-		switch compound.Kind {
-		case goxy.Dir:
-			mdType = "dir"
-		default:
-			mdType = "compound"
-		}
+		err := codingFormatter.WriteCompound(compound, fmt.Sprintf("hugo/content/coding/%s/%s.html", compound.Kind, compound.Id))
 
-		mdContent := fmt.Sprintf(`---
-goxygen_id: "%s"
-goxygen_key: "coding"
-GeekdocFlatSection: true
-title: "%s"
-type: "%s"
----
-`, compound.Id, compound.Title, mdType)
-
-		os.MkdirAll(fmt.Sprintf("hugo/content/coding/%s", compound.Kind), 0644)
-		ioutil.WriteFile(fmt.Sprintf("hugo/content/coding/%s/%s.md", compound.Kind, compound.Id), []byte(mdContent), 0644)
-		data.Entities[compound.Id] = GoxygenEntity{
-			Kind:   string(compound.Kind),
-			Entity: compound,
+		if err != nil {
+			log.Fatalf("Error: %+v", err)
 		}
 	}
 
 	for _, compound := range scriptCompounds {
-		var mdType string
-		switch compound.Kind {
-		case goxy.Dir:
-			mdType = "dir"
-		default:
-			mdType = "compound"
-		}
+		err := scriptingFormatter.WriteCompound(compound, fmt.Sprintf("hugo/content/scripting/%s/%s.html", compound.Kind, compound.Id))
 
-		mdContent := fmt.Sprintf(`---
-goxygen_id: "%s"
-goxygen_key: "scripting"
-GeekdocFlatSection: true
-title: "%s"
-type: "%s"
----
-`, compound.Id, compound.Title, mdType)
-
-		os.MkdirAll(fmt.Sprintf("hugo/content/scripting/%s", compound.Kind), 0644)
-		ioutil.WriteFile(fmt.Sprintf("hugo/content/scripting/%s/%s.md", compound.Kind, compound.Id), []byte(mdContent), 0644)
-		scriptData.Entities[compound.Id] = GoxygenEntity{
-			Kind:   string(compound.Kind),
-			Entity: compound,
+		if err != nil {
+			log.Fatalf("Error: %+v", err)
 		}
 	}
 
@@ -267,8 +223,8 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 	compounds := make([]*goxy.CompoundDoc, 0)
 
 	data := GoxygenData{
-		Entities: make(map[string]GoxygenEntity),
-		Refs:     make(map[string]GoxygenRef),
+		Entities: make(map[string]*goxy.CompoundDoc),
+		Refs:     make(map[string]goxy.CompoundRef),
 	}
 	files := make(map[string]*goxy.CompoundDoc)
 	for _, doc := range docs {
@@ -340,12 +296,9 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 
 	// COMPOUNDS
 	for _, compound := range compounds {
-		data.Entities[compound.Id] = GoxygenEntity{
-			Kind:   string(compound.Kind),
-			Entity: compound,
-		}
+		data.Entities[compound.Id] = compound
 
-		data.Refs[compound.Id] = GoxygenRef{
+		data.Refs[compound.Id] = goxy.CompoundRef{
 			Kind:      string(compound.Kind),
 			Name:      compound.Name,
 			ParentRef: "N/D",
@@ -358,7 +311,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 			AddRefsFromDocstring(data.Refs, compound.Id, section.Description)
 
 			for _, function := range section.Functions {
-				data.Refs[function.Id] = GoxygenRef{
+				data.Refs[function.Id] = goxy.CompoundRef{
 					Kind:      "function",
 					Name:      function.Name,
 					ParentRef: compound.Id,
@@ -368,7 +321,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				AddRefsFromDescriptions(data.Refs, compound.Id, function.Descriptions)
 			}
 			for _, enum := range section.Enums {
-				data.Refs[enum.Id] = GoxygenRef{
+				data.Refs[enum.Id] = goxy.CompoundRef{
 					Kind:      "enum",
 					Name:      enum.Name,
 					ParentRef: compound.Id,
@@ -376,7 +329,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				}
 
 				for _, value := range enum.Values {
-					data.Refs[value.Id] = GoxygenRef{
+					data.Refs[value.Id] = goxy.CompoundRef{
 						Kind:      "enumvalue",
 						Name:      value.Name,
 						ParentRef: compound.Id,
@@ -387,7 +340,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				AddRefsFromDescriptions(data.Refs, compound.Id, enum.Descriptions)
 			}
 			for _, attr := range section.Attributes {
-				data.Refs[attr.Id] = GoxygenRef{
+				data.Refs[attr.Id] = goxy.CompoundRef{
 					Kind:      "attribute",
 					Name:      attr.Name,
 					ParentRef: compound.Id,
@@ -397,7 +350,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				AddRefsFromDescriptions(data.Refs, compound.Id, attr.Descriptions)
 			}
 			for _, def := range section.Defines {
-				data.Refs[def.Id] = GoxygenRef{
+				data.Refs[def.Id] = goxy.CompoundRef{
 					Kind:      "define",
 					Name:      def.Name,
 					ParentRef: compound.Id,
@@ -407,7 +360,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				AddRefsFromDescriptions(data.Refs, compound.Id, def.Descriptions)
 			}
 			for _, typedef := range section.Typedefs {
-				data.Refs[typedef.Id] = GoxygenRef{
+				data.Refs[typedef.Id] = goxy.CompoundRef{
 					Kind:      "typedef",
 					Name:      typedef.Name,
 					ParentRef: compound.Id,
@@ -417,7 +370,7 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 				AddRefsFromDescriptions(data.Refs, compound.Id, typedef.Descriptions)
 			}
 			for _, friend := range section.Friends {
-				data.Refs[friend.Id] = GoxygenRef{
+				data.Refs[friend.Id] = goxy.CompoundRef{
 					Kind:      "friend",
 					Name:      friend.Name,
 					ParentRef: compound.Id,
@@ -428,21 +381,22 @@ func ExtractDoxygenMetadata(docs []*doxygen.Doxygen) ([]*goxy.CompoundDoc, Goxyg
 			}
 		}
 	}
+
 	return compounds, data
 }
 
-func AddRefsFromDescriptions(refs map[string]GoxygenRef, id string, d goxy.Descriptions) {
+func AddRefsFromDescriptions(refs map[string]goxy.CompoundRef, id string, d goxy.Descriptions) {
 	AddRefsFromDocstring(refs, id, d.DetailedDescription)
 	AddRefsFromDocstring(refs, id, d.BriefDescription)
 	AddRefsFromDocstring(refs, id, d.InBodyDescription)
 }
 
-func AddRefsFromDocstring(refs map[string]GoxygenRef, id string, doc goxy.DocString) {
+func AddRefsFromDocstring(refs map[string]goxy.CompoundRef, id string, doc goxy.DocString) {
 	for _, element := range doc.Content {
 		switch element.Type {
 		case goxy.Anchor:
 			a := element.Value.(goxy.DocStringAnchor)
-			refs[a.Id] = GoxygenRef{
+			refs[a.Id] = goxy.CompoundRef{
 				Kind:      string(goxy.Anchor),
 				Name:      "N/A",
 				RefId:     a.Id,
@@ -451,7 +405,7 @@ func AddRefsFromDocstring(refs map[string]GoxygenRef, id string, doc goxy.DocStr
 		case goxy.Section:
 			s := element.Value.(goxy.DocStringSection)
 			if s.Id != "" {
-				refs[s.Id] = GoxygenRef{
+				refs[s.Id] = goxy.CompoundRef{
 					Kind:      s.Kind,
 					Name:      "N/A",
 					RefId:     s.Id,

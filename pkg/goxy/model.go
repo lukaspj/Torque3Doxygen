@@ -318,6 +318,13 @@ type TypedefDoc struct {
 	ArgsString DocString
 }
 
+type CompoundRef struct {
+	Kind      string
+	Name      string
+	RefId     string
+	ParentRef string
+}
+
 type CompoundDoc struct {
 	Descriptions
 

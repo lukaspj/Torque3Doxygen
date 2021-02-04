@@ -7,13 +7,12 @@ replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.7.0
 require (
 	github.com/Microsoft/go-winio v0.4.15 // indirect
 	github.com/Microsoft/hcsshim v0.8.10 // indirect
+	github.com/alecthomas/chroma v0.8.2
 	github.com/containerd/containerd v1.4.1 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.0-beta1+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/go-chi/render v1.0.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/moby/sys/mount v0.1.1 // indirect
 	github.com/moby/term v0.0.0-20201101162038-25d840ce174a // indirect
