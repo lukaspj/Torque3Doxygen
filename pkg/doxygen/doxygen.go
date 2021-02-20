@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -97,7 +98,8 @@ type Anchor struct {
 type Linebreak struct{}
 
 type ProgramListing struct {
-	Content DocString
+	Content  DocString
+	Filename string `xml:"filename,attr"`
 }
 
 type Paragraph struct {
@@ -405,53 +407,124 @@ func (ty *Ref) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
 }
 
 func (ty *Paragraph) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown paragraph attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Title) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown title attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Heading) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	var err error
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		case "level":
+			ty.Level, err = strconv.Atoi(attr.Value)
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.New(fmt.Sprintf("unknown heading attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Bold) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown bold attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Emphasis) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown emphasis attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Verbatim) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown verbatim attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Preformatted) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown preformatted attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *ComputerOutput) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown computeroutput attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *Term) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		default:
+			return errors.New(fmt.Sprintf("unknown term attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *ProgramListing) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		case "filename":
+			ty.Filename = attr.Value
+		default:
+			return errors.New(fmt.Sprintf("unknown type attribute: %s", attr.Name.Local))
+		}
+	}
+
 	return ty.Content.UnmarshalXML(dec, start)
 }
 
 func (ty *DocString) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
-	/*for _, attr := range start.Attr {
-		switch attr.Name.Local {
-		default:
-			return errors.New(fmt.Sprintf("unknown type attribute: %s", attr.Name.Local))
-		}
-	}*/
-
 	for {
 		t, err := dec.Token()
 		if err != nil {

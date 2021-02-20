@@ -1,14 +1,104 @@
 package templates
 
+const DirCompound = `---
+GeekdocFlatSection: true
+title: "{{ .Compound.Title }}"
+type: "{{ .Type }}"
+url: "/{{ .Section }}/{{ .Compound.Kind }}/{{ .Compound.Id }}"
+
+goxygen:
+  kind: "{{ .Compound.Kind }}"
+  section: "{{ .Section }}"
+---
+<div id="file-tree-container"></div>
+
+<script defer>
+	function visitFile(file) {
+		const node = new TreeNode(file.Name);
+		node.on('click', function () {
+			window.location.href = "/{{ .Section }}/file/" + file.Id;
+		})
+		return node;
+	}
+
+	function visitDir(dir) {
+		var node = new TreeNode(dir.Name);
+		for (let i = 0; i < dir.Dirs.length; i++) {
+			const subNode = visitDir(dir.Dirs[i]);
+			node.addChild(subNode)
+		}
+		for (let i = 0; i < dir.Files.length; i++) {
+			const subNode = visitFile(dir.Files[i]);
+			node.addChild(subNode)
+		}
+
+		return node;
+	}
+
+	document.addEventListener("DOMContentLoaded", function () {
+		var dirTree = {{ $.H.RenderDirJson .Compound }};
+
+		const treeNode = visitDir(dirTree);
+
+		var tree = new TreeView(treeNode, "#file-tree-container", TreeConfig);
+		tree.collapseAllNodes();
+		tree.reload();
+	}, false);
+</script>
+`
+
 const Compound = `---
 GeekdocFlatSection: true
 title: "{{ .Compound.Title }}"
 type: "{{ .Type }}"
+url: "/{{ .Section }}/{{ .Compound.Kind }}/{{ .Compound.Id }}"
+
+goxygen:
+  kind: "{{ .Compound.Kind }}"
+  section: "{{ .Section }}"
+
+GeekdocSearchKeywords:
+  {{- range .Compound.InnerClasses }}
+  - "{{ (index $.H.CompoundIdMap .RefId).Title }}"
+  {{- end }}
+  {{- range .Compound.InnerGroups }}
+  - "{{ (index $.H.CompoundIdMap .RefId).Title }}"
+  {{- end }}
+  {{- range .Compound.InnerFiles }}
+  - "{{ (index $.H.CompoundIdMap .RefId).Title }}"
+  {{- end }}
+  {{- range .Compound.InnerDirs }}
+  - "{{ (index $.H.CompoundIdMap .RefId).Title }}"
+  {{- end }}
+  {{- range .Compound.Sections }}
+  - "{{ .Header }}"
+    {{- range .Enums }}
+  -  "{{ .Name }}"
+      {{- range .Values }}
+  - "{{ .Name }}"
+      {{- end }}
+    {{- end }}
+    {{- range .Functions }}
+  - "{{ .Name }}"
+    {{- end }}
+    {{- range .Attributes }}
+  - "{{ .Name }}"
+    {{- end }}
+    {{- range .Defines }}
+  - "{{ .Name }}"
+    {{- end }}
+    {{- range .Typedefs }}
+  - "{{ .Name }}"
+    {{- end }}
+    {{- range .Friends }}
+  - "{{ .Name }}"
+    {{- end }}
+  {{- end }}
 ---
 
 {{ if .Compound.Location.File }}
 <p>
-	<a href="/{{.Section}}/{{ .Compound.Kind }}/{{ .Compound.Location.FileRefId }}">{{ .Compound.Location.File }}</a>
+	<a href="/{{.Section}}/file/{{ .Compound.Location.FileRefId }}">{{ .Compound.Location.File }}</a>
 </p>
 {{ end }}
 
@@ -313,7 +403,7 @@ const Section = `<div class="compound-section">
 {{ with .Section.Typedefs }}
 {{ range . }}
 	<a class="anchor" id="{{ .Id }}"></a>
-	{{ $.H.RenderHighlight "C++" (printf "%s %s %s" ($.H.RenderDocstring .Type) .Name ($.H.RenderDocstring .ArgsString)) }}
+	{{ $.H.RenderHighlight "C++" (printf "typedef %s %s %s" ($.H.RenderDocstring .Type) .Name ($.H.RenderDocstring .ArgsString)) }}
 
 	{{ $.H.RenderDocstring .BriefDescription }}
 	{{ $.H.RenderDocstring .DetailedDescription }}

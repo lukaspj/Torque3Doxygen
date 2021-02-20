@@ -91,18 +91,45 @@ func (h *Hugo) RenderHighlightWithLineNos(language string, content string) strin
 	return ReplaceHrefInHighlight(buf.String())
 }
 
-func ReplaceHrefInHighlight(s string) string {
-	re1, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>&#34;([^<]+)&#34;</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*<span [^>]+>([^<]+)</span>\\s*<span [^>]+>&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
-	re2, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>&#34;([^<]+)&#34;</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*(<span [^>]+>[^<]+</span>\\s*<span [^>]+>::</span>)?\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
-	re3, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>&#34;([^<]+)&#34;</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*(<span [^>]+>[^<]+</span>\\s*<span [^>]+>&lt;</span>)?\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>&gt;&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
+func minInt(x, y int) int {
+	if x > y {
+		return y
+	} else {
+		return x
+	}
+}
 
-	return re3.ReplaceAllString(
+func ReplaceHrefInHighlight(s string) string {
+	// The simplest case
+	re1, _ := regexp.Compile("<span [^>]+>((?:-|:|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;((?:::|~)*)</span>\\s*((?:<span [^>]+>[^<]+</span>\\s*)*?)\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&lt;|&gt;|=|\\*|!|-|\\||&amp;|\\^|\\+|~|/|:)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:|\\+|=|!|/|\\?|~)*)</span>")
+	// Handle :: namespacing
+	// re2, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*(<span [^>]+>[^<]+</span>\\s*<span [^>]+>::</span>)?\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&gt;|=)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
+	// Handle Generics
+	// re3, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*(<span [^>]+>[^<]+</span>\\s*<span [^>]+>&lt;</span>)?\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&gt;|=)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
+
+	ret := re1.ReplaceAllString(s, "<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5$6</a><span class=\"o\">$7</span>")
+	tmp := ret
+	for {
+		tmp = re1.ReplaceAllString(ret, "<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5$6</a><span class=\"o\">$7</span>")
+		if tmp == ret {
+			break
+		} else {
+			ret = tmp
+		}
+	}
+
+	failIdx := strings.Index(ret, "<span class=\"o\">&lt;</span><span class=\"n\">a</span> <span class=\"n\">href")
+	if failIdx >= 0 {
+		panic(fmt.Sprintf("unable to transform link in: %s,\n\n\nreturn: %s\n\n\ncontext: %s", s, ret, ret[failIdx:minInt(len(ret), failIdx + 2000)]))
+	}
+	return ret
+	/*re3.ReplaceAllString(
 		re2.ReplaceAllString(
-			re1.ReplaceAllString(s, "<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3$4</span></a><span class=\"o\">$5</span>"),
-			"<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5</a><span class=\"o\">$6</span>",
+			re1.ReplaceAllString(s, "<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5$6</a><span class=\"o\">$7</span>"),
+			"<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5$6</a><span class=\"o\">$7</span>",
 		),
-		"<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5</a><span class=\"o\">&gt;$6</span>",
-	)
+		"<span class=\"o\">$1</span><a href=$2><span class=\"n\">$3</span>$4$5$6</a><span class=\"o\">&gt;$7</span>",
+	)*/
 }
 
 func (h *Hugo) RenderBriefFunctionDecl(function goxy.FunctionDoc) string {
@@ -128,7 +155,7 @@ func (h *Hugo) RenderBriefDefineDecl(define goxy.DefineDoc) string {
 
 	paramStrings := make([]string, len(define.Params))
 	for idx, param := range define.Params {
-		paramStrings[idx] = fmt.Sprintf("%s %s", param.Defname)
+		paramStrings[idx] = fmt.Sprintf("%s", param.Defname)
 	}
 
 	_, _ = fmt.Fprint(buf, strings.Join(paramStrings, ", "))
@@ -195,10 +222,9 @@ func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
 	buf := bytes.NewBufferString("")
 
 	for _, element := range docstring.Content {
-
 		switch e := element.Value.(type) {
 		case goxy.DocStringText:
-			_, _ = fmt.Fprintf(buf, e.Content)
+			_, _ = fmt.Fprintf(buf, strings.ReplaceAll(e.Content, "{{", "££@$$"))
 		case goxy.DocStringParagraph:
 			_, _ = fmt.Fprintf(buf, "<p>%s</p>", h.RenderDocstring(e.Content))
 		case goxy.DocStringEmphasis:
@@ -384,6 +410,31 @@ func (h *Hugo) RenderSection(section *goxy.SectionDoc) string {
 	return buf.String()
 }
 
+func (h *Hugo) RenderDirJson(compound *goxy.CompoundDoc) string {
+	buf := bytes.NewBufferString("")
+
+	_, _ = fmt.Fprintf(buf, "{\"Name\":\"%s\",\"Id\":\"%s\"", compound.Name, compound.Id)
+
+	_, _ = fmt.Fprint(buf, ",\"Dirs\":[")
+	for idx, dir := range compound.InnerDirs {
+		if idx > 0 {
+			_, _ = fmt.Fprint(buf, ",")
+		}
+		_, _ = fmt.Fprint(buf, h.RenderDirJson(h.CompoundIdMap[dir.RefId]))
+	}
+	_, _ = fmt.Fprint(buf, "],\"Files\":[")
+	for idx, file := range compound.InnerFiles {
+		if idx > 0 {
+			_, _ = fmt.Fprint(buf, ",")
+		}
+		fileCompound := h.CompoundIdMap[file.RefId]
+		_, _ = fmt.Fprintf(buf, "{\"Name\":\"%s\",\"Id\":\"%s\"}", fileCompound.Name, fileCompound.Id)
+	}
+	_, _ = fmt.Fprint(buf, "]}")
+
+	return buf.String()
+}
+
 func (h *Hugo) WriteCompound(compound *goxy.CompoundDoc, path string) error {
 	var err error
 
@@ -402,14 +453,19 @@ func (h *Hugo) WriteCompound(compound *goxy.CompoundDoc, path string) error {
 
 	model := CompoundTemplateModel{
 		H:        h,
-		Section:  "coding",
+		Section:  h.Section,
 		Type:     mdType,
 		Compound: compound,
 	}
 
+	compoundTemplate := templates.Compound
+	if compound.Kind == goxy.Dir {
+		compoundTemplate = templates.DirCompound
+	}
+
 	t, err := template.New("compound").
 		Funcs(funcMap).
-		Parse(templates.Compound)
+		Parse(compoundTemplate)
 
 	if err != nil {
 		return errors.WithStack(err)
@@ -421,11 +477,13 @@ func (h *Hugo) WriteCompound(compound *goxy.CompoundDoc, path string) error {
 	}
 	defer f.Close()
 
-	w := bufio.NewWriter(f)
-	err = t.ExecuteTemplate(w, "compound", model)
+	buf := bytes.NewBufferString("")
+	err = t.ExecuteTemplate(buf, "compound", model)
 	if err != nil {
 		return errors.WithStack(err)
 	}
+	w := bufio.NewWriter(f)
+	_, _ = w.WriteString(strings.ReplaceAll(buf.String(), "££@$$", "{{\"{\"}}"))
 
 	err = w.Flush()
 	if err != nil {
