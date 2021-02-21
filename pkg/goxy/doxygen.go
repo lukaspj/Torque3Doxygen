@@ -116,6 +116,9 @@ func CompoundFromDoxygen(d *doxygen.Doxygen) (*CompoundDoc, error) {
 		return nil, err
 	}
 
+	compound.InheritanceGraph = GraphFromDoxygen(d.CompoundDef.InheritanceGraph)
+	compound.InheritanceGraph = PruneSubClassesFromGraph(compound.InheritanceGraph, compound.Id)
+
 	return compound, nil
 }
 
@@ -454,6 +457,84 @@ func DescriptionsFromDoxygen(d doxygen.Descriptions) (Descriptions, error) {
 	return r, nil
 }
 
+func PruneSubClassesFromGraph(g Graph, baseClassId string) Graph {
+	nodes := make(map[int]GraphNode, 0)
+
+	for _, node := range g.Nodes {
+		if node.RefId == baseClassId {
+			nodes[node.Id] = node
+			break
+		}
+	}
+
+	nodeCount := 0
+	for nodeCount != len(nodes) {
+		nodeCount = len(nodes)
+
+		for _, edge := range g.Edges {
+			if _, ok := nodes[edge.FromId]; ok {
+				nodes[edge.ToId] = *g.ResolveId(edge.ToId)
+			}
+		}
+	}
+
+	edges := make([]GraphEdge, 0)
+	for _, edge := range g.Edges {
+		_, fromOk := nodes[edge.FromId]
+		_, toOk := nodes[edge.ToId]
+		if fromOk && toOk {
+			edges = append(edges, edge)
+		}
+	}
+
+	g.Edges = edges
+	g.Nodes = make([]GraphNode, 0)
+	for _, node := range nodes {
+		g.Nodes = append(g.Nodes, node)
+	}
+	return g
+}
+
+func GraphFromDoxygen(g doxygen.Graph) Graph {
+	r := Graph{
+		Nodes: make([]GraphNode, 0),
+		Edges: make([]GraphEdge, 0),
+	}
+
+	for _, node := range g.Nodes {
+		if node.Label == "" {
+			continue
+		}
+
+		r.Nodes = append(r.Nodes, GraphNode{
+			Id:    node.Id,
+			Label: node.Label,
+			RefId: strings.ToLower(node.Link.RefId),
+		})
+
+		for _, child := range node.Children {
+			if child.EdgeLabel != nil && len(child.EdgeLabel) > 0 {
+				for _, l := range child.EdgeLabel {
+					r.Edges = append(r.Edges, GraphEdge{
+						FromId:    node.Id,
+						ToId:      child.RefId,
+						Relation:  child.Relation,
+						EdgeLabel: l,
+					})
+				}
+			} else {
+				r.Edges = append(r.Edges, GraphEdge{
+					FromId:   node.Id,
+					ToId:     child.RefId,
+					Relation: child.Relation,
+				})
+			}
+		}
+	}
+
+	return r
+}
+
 func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 	var err error
 	parts := make([]DocStringElement, len(t.Content))
@@ -480,7 +561,7 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 			}
 		case doxygen.Image:
 			parts[i] = DocStringElement{
-				Type:  Image,
+				Type: Image,
 				Value: DocStringImage{
 					Name:        cc.Name,
 					Type:        cc.Type,
@@ -618,7 +699,7 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 				t.Rows[idx] = make([]DocStringTableEntry, len(row.Columns))
 				for jdx, col := range row.Columns {
 					t.Rows[idx][jdx] = DocStringTableEntry{
-						Head:    col.TableHead,
+						Head: col.TableHead,
 					}
 					t.Rows[idx][jdx].Content, err = DocStringFromDoxygen(col.Content)
 					if err != nil {

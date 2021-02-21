@@ -50,6 +50,16 @@ type HighlightOpts struct {
 	Language        string
 }
 
+func (h *Hugo) MermaidEscape(label string) string {
+	// Workaround for: https://github.com/mermaid-js/mermaid/issues/1506
+	return strings.ReplaceAll(
+		strings.ReplaceAll(
+			strings.ReplaceAll(label, ">", "_"),
+			":", "_"),
+		"<", "_")
+	// return strings.ReplaceAll(label, ":", "#58;")
+}
+
 func (h *Hugo) RenderHighlight(language string, content string) string {
 	buf := bytes.NewBufferString("")
 
@@ -205,17 +215,25 @@ func (h *Hugo) RenderReimplementedBy(f goxy.FunctionDoc) string {
 	return buf.String()
 }
 
-func (h *Hugo) RenderRef(refId, content string) string {
+func (h *Hugo) HrefForRefId(refId string) string {
 	if c, ok := h.CompoundRefs[refId]; !ok {
-		log.Printf("error: %+v", fmt.Errorf("unknown ref: %s", refId))
-		return content
+		return "#unknown-refid"
 	} else {
 		if p, ok := h.CompoundRefs[c.ParentRef]; ok {
-			return fmt.Sprintf("<a href=\"/%s/%s/%s#%s\">%s</a>", h.Section, p.Kind, strings.ToLower(p.RefId), c.RefId, content)
+			return fmt.Sprintf("/%s/%s/%s#%s", h.Section, p.Kind, strings.ToLower(p.RefId), c.RefId)
 		} else {
-			return fmt.Sprintf("<a href=\"/%s/%s/%s\">%s</a>", h.Section, c.Kind, strings.ToLower(c.RefId), content)
+			return fmt.Sprintf("/%s/%s/%s", h.Section, c.Kind, strings.ToLower(c.RefId))
 		}
 	}
+}
+
+func (h *Hugo) RenderRef(refId, content string) string {
+	href := h.HrefForRefId(refId)
+	if href == "#unknown-refid" {
+		log.Printf("error: %+v", fmt.Errorf("unknown ref: %s", refId))
+		return content
+	}
+	return fmt.Sprintf("<a href=\"%s\">%s</a>", h.HrefForRefId(refId), content)
 }
 
 func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
@@ -335,7 +353,7 @@ func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
 
 func (h *Hugo) RenderEnumBody(values []goxy.EnumValue) string {
 	buf := bytes.NewBufferString("{")
-	if len(values) < 2 {
+	if len(values) > 1 {
 		_, _ = fmt.Fprint(buf, "\n")
 	}
 	for _, value := range values {

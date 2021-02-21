@@ -325,6 +325,33 @@ type CompoundRef struct {
 	ParentRef string
 }
 
+type GraphNode struct {
+	Id    int
+	Label string
+	RefId string
+}
+
+type GraphEdge struct {
+	FromId    int
+	ToId      int
+	Relation  string
+	EdgeLabel string
+}
+
+type Graph struct {
+	Nodes []GraphNode
+	Edges []GraphEdge
+}
+
+func (g Graph) ResolveId(id int) *GraphNode {
+	for _, node := range g.Nodes {
+		if node.Id == id {
+			return &node
+		}
+	}
+	return nil
+}
+
 type CompoundDoc struct {
 	Descriptions
 
@@ -346,4 +373,6 @@ type CompoundDoc struct {
 
 	Location       SourceLocation
 	ProgramListing DocString
+
+	InheritanceGraph Graph
 }

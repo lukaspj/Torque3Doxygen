@@ -34,11 +34,11 @@ cd /DoxygenOutput || exit
 /Goxygen/DoxygenConverter
 
 mkdir /Hugo
-cd /Hugo || exit
-git clone https://github.com/lukaspj/T3DDocs.git t3ddocs
+git clone https://github.com/lukaspj/T3DDocs.git /Hugo/t3ddocs
 cp -r /DoxygenOutput/hugo/content /Hugo/t3ddocs/content/_generated
 
 cd /Hugo/t3ddocs || exit
+printf "\nt3dversion = \"%s\"" "${T3D_BRANCH}" >> config.toml
 export HUGO_ENV='production'
 hugo -v --minify --enableGitInfo
 azcopy sync public/ "${AZURE_STORAGE_CONTAINER_URL}/${T3D_SLUG}${AZURE_STORAGE_SAS_TOKEN}" --delete-destination=true

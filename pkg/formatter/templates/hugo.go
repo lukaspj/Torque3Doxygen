@@ -102,6 +102,44 @@ GeekdocSearchKeywords:
 </p>
 {{ end }}
 
+<div id="graphPrerenderDiv"></div>
+
+{{ if gt (len .Compound.InheritanceGraph.Nodes) 0 }}
+<div class="gdoc-expand">
+  <label class="gdoc-expand__head flex justify-between" for="compound-inheritance-graph">
+    <span>Inheritance diagram for {{ .Compound.Title }}</span>
+    <span>↕</span>
+  </label>
+  <input id="compound-inheritance-graph" type="checkbox" class="gdoc-expand__control hidden" />
+  <div class="gdoc-markdown--nested gdoc-expand__content">
+  	<div id="compound-inheritance-graph-container"></div>
+  </div>
+</div>
+
+<script type="application/javascript">
+ document.addEventListener('DOMContentLoaded', function() {
+   const graphDefinition = ` + "`" + `classDiagram
+{{ range .Compound.InheritanceGraph.Nodes }}
+class {{ $.H.MermaidEscape .Label }}
+link {{ $.H.MermaidEscape .Label }} "{{ $.H.HrefForRefId .RefId }}" "See documentation for {{ $.H.MermaidEscape .Label }}"
+{{ end }}
+{{ range .Compound.InheritanceGraph.Edges }}
+{{ $.H.MermaidEscape ($.Compound.InheritanceGraph.ResolveId .ToId).Label }} <|-- {{ $.H.MermaidEscape ($.Compound.InheritanceGraph.ResolveId .FromId).Label }}
+{{- with .EdgeLabel }} : {{ $.H.MermaidEscape . }}{{ end }}
+{{ end }}
+` + "`" + `;
+
+  mermaid.mermaidAPI.initialize({
+    startOnLoad:false
+  });
+  var graph = mermaid.mermaidAPI.render('graphPrerenderDiv', graphDefinition, function (svgCode) {
+    const element = document.querySelector("#compound-inheritance-graph-container");
+    element.innerHTML = svgCode;
+  });
+ });
+</script>
+{{ end }}
+
 {{ if .Compound.BriefDescription }}
 {{ $.H.RenderDocstring .Compound.BriefDescription }}
 {{ end }}

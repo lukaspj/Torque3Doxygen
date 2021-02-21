@@ -161,6 +161,27 @@ type UnkownElement struct {
 	xml.Name
 }
 
+type GraphChildNode struct {
+	RefId     int      `xml:"refid,attr"`
+	Relation  string   `xml:"relation,attr"`
+	EdgeLabel []string `xml:"edgelabel"`
+}
+
+type GraphLink struct {
+	RefId string `xml:"refid,attr"`
+}
+
+type GraphNode struct {
+	Id       int              `xml:"id,attr"`
+	Label    string           `xml:"label"`
+	Link     GraphLink        `xml:"link"`
+	Children []GraphChildNode `xml:"childnode"`
+}
+
+type Graph struct {
+	Nodes []GraphNode `xml:"node"`
+}
+
 type CompoundDef struct {
 	Descriptions
 
@@ -185,6 +206,8 @@ type CompoundDef struct {
 	InnerNamespaces []InnerCompound `xml:"innernamespace"`
 	InnerGroups     []InnerCompound `xml:"innergroup"`
 	InnerDirs       []InnerCompound `xml:"innerdir"`
+
+	InheritanceGraph Graph `xml:"inheritancegraph"`
 }
 
 type Include struct {
