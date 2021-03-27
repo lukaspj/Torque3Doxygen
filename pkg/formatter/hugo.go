@@ -60,45 +60,48 @@ func (h *Hugo) MermaidEscape(label string) string {
 	// return strings.ReplaceAll(label, ":", "#58;")
 }
 
-func (h *Hugo) RenderHighlight(language string, content string) string {
+func (h *Hugo) renderHighlight(language string, content string, formatter *html.Formatter) string {
 	buf := bytes.NewBufferString("")
-
-	formatter := html.New(
-		html.WithClasses(true),
-	)
-
 	style := styles.Get("swapoff")
 	if style == nil {
 		style = styles.Fallback
 	}
 
 	lexer := lexers.Get(language)
+	if lexer == nil {
+		lexer = lexers.Get("C++")
+	}
 	lexer = chroma.Coalesce(lexer)
 	iterator, _ := lexer.Tokenise(nil, content)
 	_ = formatter.Format(buf, style, iterator)
 
+	charactersToReplace := map[string]string {
+		"%": "&#37;",
+	}
+
+	output := buf.String()
+	for c, v := range charactersToReplace {
+		output = strings.ReplaceAll(output, c, v)
+	}
+
 	return ReplaceHrefInHighlight(buf.String())
 }
 
-func (h *Hugo) RenderHighlightWithLineNos(language string, content string) string {
-	buf := bytes.NewBufferString("")
+func (h *Hugo) RenderHighlight(language string, content string) string {
+	formatter := html.New(
+		html.WithClasses(true),
+	)
 
+	return h.renderHighlight(language, content, formatter)
+}
+
+func (h *Hugo) RenderHighlightWithLineNos(language string, content string) string {
 	formatter := html.New(
 		html.WithClasses(true),
 		html.WithLineNumbers(true),
 	)
 
-	style := styles.Get("swapoff")
-	if style == nil {
-		style = styles.Fallback
-	}
-
-	lexer := lexers.Get(language)
-	lexer = chroma.Coalesce(lexer)
-	iterator, _ := lexer.Tokenise(nil, content)
-	_ = formatter.Format(buf, style, iterator)
-
-	return ReplaceHrefInHighlight(buf.String())
+	return h.renderHighlight(language, content, formatter)
 }
 
 func minInt(x, y int) int {
@@ -111,7 +114,7 @@ func minInt(x, y int) int {
 
 func ReplaceHrefInHighlight(s string) string {
 	// The simplest case
-	re1, _ := regexp.Compile("<span [^>]+>((?:-|:|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;((?:::|~)*)</span>\\s*((?:<span [^>]+>[^<]+</span>\\s*)*?)\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&lt;|&gt;|=|\\*|!|-|\\||&amp;|\\^|\\+|~|/|:)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:|\\+|=|!|/|\\?|~)*)</span>")
+	re1, _ := regexp.Compile("<span [^>]+>((?:-|\\+|!|\"|:|\\(|\\)|\\*|&amp;|&gt;|&lt;|&quot;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;((?:::|~)*)</span>\\s*((?:<span [^>]+>[^<]+</span>\\s*)*?)\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&lt;|&gt;|=|\\*|!|-|\\||&amp;|\\^|\\+|~|/|:)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|&quot;|-|\\(|\\)|:|\\+|=|!|/|\\?|~|\")*)</span>")
 	// Handle :: namespacing
 	// re2, _ := regexp.Compile("<span [^>]+>((?:-|\\(|\\)|\\*|&amp;|&gt;|&lt;)*)&lt;</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>href</span>\\s*<span [^>]+>=</span>\\s*<span [^>]+>(?:&#34;|\")([^<]+)(?:&#34;|\")</span>\\s*<span [^>]+>&gt;(~?)</span>\\s*(<span [^>]+>[^<]+</span>\\s*<span [^>]+>::</span>)?\\s*(<span [^>]+>[^<]+</span>)\\s*<span [^>]+>((?:&gt;|=)*)&lt;/</span>\\s*<span [^>]+>a</span>\\s*<span [^>]+>&gt;((?:\\*|&amp;|&lt;|&gt;|-|\\(|\\)|:)*)</span>")
 	// Handle Generics
@@ -128,9 +131,13 @@ func ReplaceHrefInHighlight(s string) string {
 		}
 	}
 
+	re2, _ := regexp.Compile("&lt;a href=(?:\"|&#34;)([^\"]+)(?:\"|&#34;)&gt;([^<]+)&lt;/a&gt;")
+
+	ret = re2.ReplaceAllString(ret, "<a href=\"$1\">$2</a>")
+
 	failIdx := strings.Index(ret, "<span class=\"o\">&lt;</span><span class=\"n\">a</span> <span class=\"n\">href")
 	if failIdx >= 0 {
-		panic(fmt.Sprintf("unable to transform link in: %s,\n\n\nreturn: %s\n\n\ncontext: %s", s, ret, ret[failIdx:minInt(len(ret), failIdx + 2000)]))
+		panic(fmt.Sprintf("unable to transform link\n\n\nreturn: %s\n\n\ncontext: %s", ret, ret[failIdx:minInt(len(ret), failIdx + 2000)]))
 	}
 	return ret
 	/*re3.ReplaceAllString(
@@ -185,7 +192,7 @@ func (h *Hugo) RenderReimplementedFrom(f goxy.FunctionDoc) string {
 		return "&lt;UNKNOWN PARENT TYPE&gt;"
 	}
 
-	return fmt.Sprintf("<a href=\"/%s/%s/%s#%s\">%s</a>", h.Section, pRef.Kind, strings.ToLower(pRef.RefId), ref.RefId, pRef.Name)
+	return fmt.Sprintf("<a href=\"/%s/%s/%s/__index_when_offline__#%s\">%s</a>", h.Section, pRef.Kind, strings.ToLower(pRef.RefId), ref.RefId, pRef.Name)
 }
 
 func (h *Hugo) RenderReimplementedBy(f goxy.FunctionDoc) string {
@@ -209,7 +216,7 @@ func (h *Hugo) RenderReimplementedBy(f goxy.FunctionDoc) string {
 			continue
 		}
 
-		_, _ = fmt.Fprintf(buf, "<a href=\"/%s/%s/%s#%s\">%s</a>", h.Section, pRef.Kind, strings.ToLower(pRef.RefId), ref.RefId, pRef.Name)
+		_, _ = fmt.Fprintf(buf, "<a href=\"/%s/%s/%s/__index_when_offline__#%s\">%s</a>", h.Section, pRef.Kind, strings.ToLower(pRef.RefId), ref.RefId, pRef.Name)
 	}
 
 	return buf.String()
@@ -220,9 +227,9 @@ func (h *Hugo) HrefForRefId(refId string) string {
 		return "#unknown-refid"
 	} else {
 		if p, ok := h.CompoundRefs[c.ParentRef]; ok {
-			return fmt.Sprintf("/%s/%s/%s#%s", h.Section, p.Kind, strings.ToLower(p.RefId), c.RefId)
+			return fmt.Sprintf("/%s/%s/%s/__index_when_offline__#%s", h.Section, p.Kind, strings.ToLower(p.RefId), c.RefId)
 		} else {
-			return fmt.Sprintf("/%s/%s/%s", h.Section, c.Kind, strings.ToLower(c.RefId))
+			return fmt.Sprintf("/%s/%s/%s/__index_when_offline__", h.Section, c.Kind, strings.ToLower(c.RefId))
 		}
 	}
 }
@@ -233,7 +240,7 @@ func (h *Hugo) RenderRef(refId, content string) string {
 		log.Printf("error: %+v", fmt.Errorf("unknown ref: %s", refId))
 		return content
 	}
-	return fmt.Sprintf("<a href=\"%s\">%s</a>", h.HrefForRefId(refId), content)
+	return fmt.Sprintf("<a href=\"%s\">%s</a>", href, content)
 }
 
 func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
@@ -242,7 +249,7 @@ func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
 	for _, element := range docstring.Content {
 		switch e := element.Value.(type) {
 		case goxy.DocStringText:
-			_, _ = fmt.Fprintf(buf, strings.ReplaceAll(e.Content, "{{", "££@$$"))
+			_, _ = fmt.Fprint(buf, strings.ReplaceAll(e.Content, "{{", "££@$$"))
 		case goxy.DocStringParagraph:
 			_, _ = fmt.Fprintf(buf, "<p>%s</p>", h.RenderDocstring(e.Content))
 		case goxy.DocStringEmphasis:
@@ -282,28 +289,36 @@ func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
 		case goxy.DocStringHeading:
 			_, _ = fmt.Fprintf(buf, "<h%d>%s</h%d>", e.Level, h.RenderDocstring(e.Content), e.Level)
 		case goxy.DocStringXRefSect:
-			_, _ = fmt.Fprintf(buf, h.RenderRef(e.Id, fmt.Sprintf("<b>%s</b>: %s", e.Title, e.Description)))
+			_, _ = fmt.Fprintf(buf, h.RenderRef(e.Id, fmt.Sprintf("<b>%s</b>: %s", e.Title, h.RenderDocstring(e.Description))))
 		case goxy.DocStringRef:
 			_, _ = fmt.Fprintf(buf, h.RenderRef(e.RefId, h.RenderDocstring(e.Content)))
 		case goxy.DocStringAnchor:
 			_, _ = fmt.Fprintf(buf, "<a id=\"%s\"></a>", e.Id)
 		case goxy.DocStringSection:
-			t, err := template.New("docstringsection").
-				Funcs(funcMap).
-				Parse(templates.DocstringSection)
-			if err != nil {
-				log.Fatalf("error: %+v", errors.WithStack(err))
+			if e.Kind == "note" {
+				_, _ = fmt.Fprintf(buf, `<blockquote class="gdoc-hint warning">
+<strong>note:</strong><br />
+  %s
+</blockquote>`, h.RenderDocstring(e.Content))
+			} else {
+				t, err := template.New("docstringsection").
+					Funcs(funcMap).
+					Parse(templates.DocstringSection)
+				if err != nil {
+					log.Fatalf("error: %+v", errors.WithStack(err))
+				}
+
+				err = t.ExecuteTemplate(buf, "docstringsection", map[string]interface{}{
+					"H":       h,
+					"Id":      e.Id,
+					"Kind":    e.Kind,
+					"Content": e.Content,
+				})
+				if err != nil {
+					log.Fatalf("error: %+v", errors.WithStack(err))
+				}
 			}
 
-			err = t.ExecuteTemplate(buf, "docstringsection", map[string]interface{}{
-				"H":       h,
-				"Id":      e.Id,
-				"Kind":    e.Kind,
-				"Content": e.Content,
-			})
-			if err != nil {
-				log.Fatalf("error: %+v", errors.WithStack(err))
-			}
 		case goxy.DocStringTitle:
 			_, _ = fmt.Fprintf(buf, "<h2>%s</h2>", h.RenderDocstring(e.Content))
 		case goxy.DocStringParameterList:
@@ -340,7 +355,7 @@ func (h *Hugo) RenderDocstring(docstring goxy.DocString) string {
 		case goxy.DocStringImage:
 			_, _ = fmt.Fprintf(buf, "<img src=\"%s\" alt=\"%s\" />", e.Name, e.Description)
 		case goxy.DocStringHighlight:
-			_, _ = fmt.Fprintf(buf, "%s", h.RenderHighlight("C++", h.RenderDocstring(e.Content)))
+			_, _ = fmt.Fprintf(buf, "%s", h.RenderHighlight(e.Language, h.RenderDocstring(e.Content)))
 		case goxy.DocStringLinebreak:
 			_, _ = fmt.Fprint(buf, "<br />")
 		default:
@@ -501,7 +516,11 @@ func (h *Hugo) WriteCompound(compound *goxy.CompoundDoc, path string) error {
 		return errors.WithStack(err)
 	}
 	w := bufio.NewWriter(f)
-	_, _ = w.WriteString(strings.ReplaceAll(buf.String(), "££@$$", "{{\"{\"}}"))
+	_, _ = w.WriteString(
+		strings.ReplaceAll(
+			strings.ReplaceAll(buf.String(), "££@$$", "{{\"{\"}}"),
+			"__index_when_offline__",
+			"{{< index-when-offline >}}"))
 
 	err = w.Flush()
 	if err != nil {

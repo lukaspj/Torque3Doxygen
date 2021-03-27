@@ -4,6 +4,8 @@ go 1.15
 
 replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.7.0
 
+replace github.com/alecthomas/chroma v0.8.2 => github.com/lukaspj/chroma v0.8.3-0.20210226164340-b41251a6a816
+
 require (
 	github.com/Microsoft/go-winio v0.4.15 // indirect
 	github.com/Microsoft/hcsshim v0.8.10 // indirect

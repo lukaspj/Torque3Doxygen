@@ -23,7 +23,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
         ninja-build gcc-multilib g++-multilib \
         cmake cmake-qt-gui \
         bison flex graphviz curl \
-        nodejs npm \
+        nodejs npm zip unzip\
         # Libraries \
         libogg-dev libxft-dev libx11-dev libxxf86vm-dev \
         libopenal-dev libfreetype6-dev libxcursor-dev \

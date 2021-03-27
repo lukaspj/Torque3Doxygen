@@ -14,7 +14,6 @@ make
 cd /Torque3D || exit
 cp /Goxygen/Doxyfile ./Doxyfile
 doxygen
-ls -la /Torque3D/My\ Projects/Stock
 cd /Torque3D/My\ Projects/Stock/game || exit
 cat > ./main.cs <<EOF
 dumpEngineDocs("consoledoc.h");
@@ -38,7 +37,17 @@ git clone https://github.com/lukaspj/T3DDocs.git /Hugo/t3ddocs
 cp -r /DoxygenOutput/hugo/content /Hugo/t3ddocs/content/_generated
 
 cd /Hugo/t3ddocs || exit
-printf "\nt3dversion = \"%s\"" "${T3D_BRANCH}" >> config.toml
+cp config.toml config.toml.bck
+printf "uglyURLs = true\n" | cat - config.toml > /tmp/out && mv /tmp/out config.toml
+printf "\nt3dversion = \"%s\"" "${T3D_VERSION}" >> config.toml
+printf "\noffline = true\n" >> config.toml
+export HUGO_ENV='production'
+hugo -v --minify --enableGitInfo
+mkdir static
+zip -9 -r static/offline.zip public/
+rm config.toml
+mv config.toml.bck config.toml
+printf "\nt3dversion = \"%s\"\n" "${T3D_VERSION}" >> config.toml
 export HUGO_ENV='production'
 hugo -v --minify --enableGitInfo
 azcopy sync public/ "${AZURE_STORAGE_CONTAINER_URL}/${T3D_SLUG}${AZURE_STORAGE_SAS_TOKEN}" --delete-destination=true

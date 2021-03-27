@@ -40,7 +40,7 @@ func ReadFileWithBadUTF8(path string) ([]byte, error) {
 
 	illegalUtf8SequencesToPurge := []string{
 		"&#x03;", "&#x05;", "&#x00;", "&#x10;", "&#x1E;", "&#x0F;",
-		"\u0000", "\u000F", "\u0003", "\u0001"}
+		"\u0000", "\u000F", "\u0003", "\u0001", "\u0005"}
 
 	for _, s := range illegalUtf8SequencesToPurge {
 		data = bytes.ReplaceAll(data, []byte(s), []byte(""))

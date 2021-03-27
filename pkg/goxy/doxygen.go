@@ -778,6 +778,11 @@ func DocStringFromDoxygen(t doxygen.DocString) (DocString, error) {
 			if err != nil {
 				return DocString{}, err
 			}
+			if strings.HasSuffix(cc.Filename, ".tscript") {
+				h.Language = "TorqueScript"
+			} else {
+				h.Language = "C++"
+			}
 			parts[i] = DocStringElement{
 				Type:  Highlight,
 				Value: h,

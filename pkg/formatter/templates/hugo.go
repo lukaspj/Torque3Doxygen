@@ -98,7 +98,7 @@ GeekdocSearchKeywords:
 
 {{ if .Compound.Location.File }}
 <p>
-	<a href="/{{.Section}}/file/{{ .Compound.Location.FileRefId }}">{{ .Compound.Location.File }}</a>
+	<a href="/{{.Section}}/file/{{ .Compound.Location.FileRefId }}/__index_when_offline__">{{ .Compound.Location.File }}</a>
 </p>
 {{ end }}
 

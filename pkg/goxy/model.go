@@ -166,7 +166,8 @@ type DocStringComputerOutput struct {
 type DocStringLinebreak struct{}
 
 type DocStringHighlight struct {
-	Content DocString
+	Content  DocString
+	Language string
 }
 
 type DocStringRef struct {
